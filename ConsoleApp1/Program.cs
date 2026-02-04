@@ -1,5 +1,4 @@
-﻿// using System;
-
+﻿
 var board = new Board();
 void PlacePieces()
 {
@@ -24,7 +23,6 @@ void PlacePieces()
     board.PlacePiece(new Queen(PieceColor.Black), new Position(3, 7));
     board.PlacePiece(new King(PieceColor.White), new Position(4, 0));
     board.PlacePiece(new King(PieceColor.Black), new Position(4, 7));
-
 }
 
 PlacePieces();
@@ -40,10 +38,12 @@ PlacePieces();
 // Console.WriteLine(board.GetPieceAt(new Position(5, 3)));
 
 PieceColor currentTurn = PieceColor.White;
+PieceColor oponent = PieceColor.Black;
 
 while (true)
 {
     Console.WriteLine($"Сейчас ходит {currentTurn}");
+    // board.test();
     
     var input = Console.ReadLine();
 
@@ -75,12 +75,22 @@ while (true)
         
         board.MovePiece(from, to);
         
-        
+
         // if(board.GetPieceAt(to) == null)
         //     board.MovePiece(from, to);
         // else board.TakePiece(from, to);
+        if (board.IsMate(oponent))
+        {
+            Console.WriteLine($"Был объявлен мат. Король {oponent} повержен");
+            break;
+        }
         
         currentTurn = PieceColor.White == currentTurn ? PieceColor.Black : PieceColor.White;
+        oponent = PieceColor.White == oponent ? PieceColor.Black : PieceColor.White;
+        
+        
+        
+            
     }
     catch (Exception ex)
     {
@@ -102,6 +112,10 @@ class Board
         _pieces[pos.File, pos.Rank] =  piece;
     }
 
+    public void test()
+    {
+       Console.WriteLine(_pieces[1, 7].CanMove(this,new Position(1, 7), new Position(3, 6)));
+    }
 
     public Position FindKing(PieceColor color)
     {
@@ -172,17 +186,28 @@ class Board
 
     public bool IsMoveLegal(Position from, Position to)
     {
+
+        var target = _pieces[to.File, to.Rank];
+        if(target is King)
+            return false;
+        
         var piece = _pieces[from.File, from.Rank];
         if (piece == null)
             return false;
         
+        
+        
         if (_pieces[to.File, to.Rank] == null)
         {
+            
             if (!piece.CanMove(this, from, to))
                 return false;
         }
         else
         {
+            if (target.Color == piece.Color) 
+                return false;
+            
             if(!piece.CanTake(this, from, to))
                 return false;
         }
@@ -194,6 +219,58 @@ class Board
         UndoRawMove(move);
         
         return !kingInCheck;
+    }
+
+   
+    public bool IsMate(PieceColor color)
+    {
+        // var kingpos = FindKing(color);
+
+        if (!IsInCheck(color))
+        {
+            return false;
+        }
+
+        for (int file = 0; file < 8; file++)
+        {
+            for (int rank = 0; rank < 8; rank++)
+            {
+                var piece = _pieces[file, rank];
+                if(piece == null || piece.Color != color)
+                    continue;
+                
+                var from = new Position(file, rank);
+
+                for (int toFile = 0; toFile < 8; toFile++)
+                {
+                    for (int toRank = 0; toRank < 8; toRank++)
+                    {
+                        var to = new Position(toFile, toRank);
+                        if (IsMoveLegal(from, to))
+                        {
+                            Console.WriteLine($"{file} {rank} {toFile} {toRank}");
+                            return false;
+                        }
+                    }
+                }
+            }
+            
+        }       
+        
+        // for (int file = kingpos.File - 1; file <= kingpos.File + 1; file++)
+        // {
+        //     for (int rank = kingpos.Rank - 1; rank <= kingpos.Rank + 1; rank++)
+        //     {
+        //         if (file < 0 || file >= 8 || rank < 0 || rank >= 8)
+        //             continue;
+        //         
+        //         if (board.IsMoveLegal(kingpos, new Position(file, rank)))
+        //         {
+        //             return false;
+        //         }
+        //     }
+        // }
+        return true;
     }
 
     public void MovePiece(Position from, Position to)
@@ -208,10 +285,6 @@ class Board
         
         if (GetPieceAt(to) != null)
         {
-            if (!piece.CanTake(this, from, to))
-            {
-                throw new InvalidOperationException("Такой ход невозможен");
-            }
 
             if (_pieces[to.File, to.Rank].Color == piece.Color)
             {
@@ -219,16 +292,12 @@ class Board
             }
         
             _pieces[to.File, to.Rank] = null;
-            _pieces[to.File, to.Rank] = piece;
-            _pieces[from.File, from.Rank] = null;
-            return;
         }
-        
-        if(!piece.CanMove(this, from, to))
-            throw new Exception("Фигура не может совершить такой ход");
         
         _pieces[to.File, to.Rank] = piece;
         _pieces[from.File, from.Rank] = null;
+        
+        
         
     }
     
@@ -359,8 +428,7 @@ class Knight : Piece
 
     public override bool CanMove(Board board, Position from, Position to)
     {
-        Position target = new Position(to.File, to.Rank);
-        
+        Position target = new Position(to.File, to.Rank);        
         if (from.File == to.File && from.Rank == to.Rank)
         {
             return false;
@@ -370,6 +438,8 @@ class Knight : Piece
         {
             return false;
         }
+        
+
         return true;
     }
     
@@ -380,6 +450,7 @@ class Bishop : Piece
     public Bishop(PieceColor color) : base(color) { }
     public override bool CanMove(Board board, Position from, Position to)
     {
+
         int stepRank = Math.Sign(to.Rank - from.Rank);
         int stepFile = Math.Sign(to.File - from.File);
         int squaresMove = Math.Abs(to.Rank - from.Rank);
@@ -396,6 +467,8 @@ class Bishop : Piece
             }
         }
         
+
+        
         return true;
     }
     
@@ -407,6 +480,7 @@ class Rook : Piece
 
     public override bool CanMove(Board board, Position from, Position to)
     {
+
         
         if (from.File != to.File && from.Rank != to.Rank)
             return false;
@@ -432,6 +506,8 @@ class Rook : Piece
                     return false;
                 }
         }
+
+        
         return true;
     }
     
@@ -443,12 +519,16 @@ class Queen : Piece
 
     public override bool CanMove(Board board, Position from, Position to)
     {
+
         int stepRank = Math.Sign(to.Rank - from.Rank);
         int stepFile = Math.Sign(to.File - from.File);
         int squaresMove = Math.Abs(to.Rank - from.Rank);
 
+
+
         bool CheckMove()
         {
+            
             if (from.File == to.File) return Vertical();
             if (from.Rank == to.Rank) return Horizontal();
             if (Math.Abs(from.File - to.File) == Math.Abs(from.Rank - to.Rank)) return Diagonal();
@@ -465,6 +545,7 @@ class Queen : Piece
                     return false;
                 }
             }
+            
 
             return true;
         }
@@ -492,7 +573,6 @@ class Queen : Piece
             }
             return true;
         }
-
         return CheckMove();
     }
 
@@ -504,10 +584,12 @@ class King : Piece
 
     public override bool CanMove(Board board, Position from, Position to)
     {
+
         if (Math.Abs(from.File - to.File) >= 2 || Math.Abs(from.Rank - to.Rank) >= 2)
         {
             return false;
         }
+
         
         return true;
     }
